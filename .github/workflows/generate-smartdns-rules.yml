@@ -1,0 +1,52 @@
+name: Generate SmartDNS Rules
+
+on:
+  schedule:
+    - cron: "7 1 * * *"
+
+  workflow_dispatch:
+
+env:
+  CHINA_LIST_REPO_URL: https://github.com/felixonmars/dnsmasq-china-list
+  CHINA_LIST_REPO_BRANCH: master
+  RELEASE_BRANCH: rules-smartdns
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare host
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq make
+
+      - name: Prepare directory & repository
+        run: |
+          mkdir -p publish
+          git clone ${CHINA_LIST_REPO_URL} -b ${CHINA_LIST_REPO_BRANCH} --depth 1 dnsmasq-china-list
+
+      - name: Get dnsmasq-china-list
+        run: |
+          cd dnsmasq-china-list
+
+          # base file
+          make SERVER=domestic SMARTDNS_SPEEDTEST_MODE=tcp:80 smartdns-domain-rules
+          cat accelerated-domains.china.raw.txt apple.china.raw.txt > all.txt
+
+          # raw file
+          cp *.domain.smartdns.conf ../publish
+
+      - name: Push assets to "smartdns" branch
+        run: |
+          cd publish || exit 1
+          git init
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git remote add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
+          git branch -M ${RELEASE_BRANCH}
+
+          git add .
+          git commit -m "Update smartdns rules"
+
+          git push -f origin ${RELEASE_BRANCH}

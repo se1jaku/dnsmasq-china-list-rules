@@ -1,0 +1,1 @@
+# Dnsmasq China domain list
